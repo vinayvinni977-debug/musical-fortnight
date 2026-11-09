@@ -33,7 +33,7 @@ def load(symbol, interval, period):
     return df.dropna()
 
 
-def run(df, start, end, k, sl_atr, rr, cost_pct, capital=10000.0):
+def run(df, start, end, k, sl_atr, rr, cost_pct, capital=10000.0, trend=False):
     """Simulate bars [start, end). Returns (trades, equity_curve)."""
     CFG["pivot_k"] = k
     cost = cost_pct / 100
@@ -41,6 +41,7 @@ def run(df, start, end, k, sl_atr, rr, cost_pct, capital=10000.0):
     trades, curve = [], []
     warm = CFG["lookback"] + 2 * k + 2
     hi, lo, op, cl, at = (df[c].values for c in ("High", "Low", "Open", "Close", "ATR"))
+    ema = df["Close"].ewm(span=200, adjust=False).mean().values
 
     def close(price):
         nonlocal eq, pos
@@ -66,6 +67,9 @@ def run(df, start, end, k, sl_atr, rr, cost_pct, capital=10000.0):
                     close(pos["tp"])
         if not pos:
             side = pb.signal(df, end=i + 1)
+            if side and trend:  # only trade with the 200-EMA trend
+                if i < 200 or (side == "long") != (cl[i] > ema[i]):
+                    side = None
             if side:
                 price, dist = cl[i], sl_atr * at[i]
                 risk_amt = eq * CFG["risk_pct"] / 100
