@@ -1,0 +1,49 @@
+name: backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "Yahoo symbol (e.g. ^NSEI, RELIANCE.NS)"
+        default: "^NSEI"
+      interval:
+        description: "15m (60 days max), 1h (730 days max), 1d"
+        default: "1h"
+      period:
+        description: "e.g. 60d, 730d, 10y"
+        default: "730d"
+      cost:
+        description: "Cost % per side"
+        default: "0.05"
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run backtest
+        env:
+          SYMBOL: ${{ inputs.symbol }}
+          INTERVAL: ${{ inputs.interval }}
+          PERIOD: ${{ inputs.period }}
+          COST: ${{ inputs.cost }}
+        run: |
+          python backtest.py --symbol "$SYMBOL" --interval "$INTERVAL" \
+            --period "$PERIOD" --cost "$COST" | tee result.txt
+      - name: Post results to the run summary
+        if: always()
+        run: |
+          {
+            echo '```'
+            cat result.txt 2>/dev/null || echo "No output, see the logs"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
