@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paper Bot Terminal</title>
+<style>
+:root{--bg:#f4f5f2;--panel:#fff;--ink:#16181a;--mute:#6b7177;--line:#dcdfdb;--good:#117a3d;--bad:#c0332b;--acc:#0b6bcb;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0f11;--panel:#15181b;--ink:#e6e8ea;--mute:#8a9097;--line:#2a2f34;--good:#3ddc84;--bad:#ff6b61;--acc:#5aa9ff}}
+:root[data-theme="dark"]{--bg:#0d0f11;--panel:#15181b;--ink:#e6e8ea;--mute:#8a9097;--line:#2a2f34;--good:#3ddc84;--bad:#ff6b61;--acc:#5aa9ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.w{max-width:960px;margin:0 auto;padding:16px}
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:20px;margin:0;color:var(--acc)}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:11px;color:var(--mute)}
+.pill.you{color:var(--good);border-color:var(--good)}
+.stats{display:flex;gap:20px;flex-wrap:wrap;margin:14px 0}
+.s b{display:block;font-size:22px}.s span{color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.p{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.p h2{margin:0 0 8px;font-size:11px;color:var(--mute);letter-spacing:.1em;font-weight:600}
+.ag div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.ag div:last-child{border:0}.ag em{font-style:normal;color:var(--mute);text-align:right;font-size:12px}
+.pos b{font-size:18px}.good{color:var(--good)}.bad{color:var(--bad)}.mute{color:var(--mute)}
+#log{max-height:300px;overflow:auto;font-size:12px}
+#log div{padding:3px 0;border-bottom:1px dashed var(--line);overflow-wrap:anywhere}
+.ld{margin:14px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 14px;font:inherit;cursor:pointer}
+.btn.o{background:none;color:var(--ink);border:1px solid var(--line)}
+svg{width:100%;height:70px;display:block}
+.note{color:var(--mute);font-size:12px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="top">
+    <h1>Paper Bot Terminal</h1>
+    <span class="pill" id="mode">SAMPLE DATA</span>
+  </div>
+  <div class="stats">
+    <div class="s"><b id="bal">-</b><span>balance</span></div>
+    <div class="s"><b id="chg">-</b><span>vs start</span></div>
+    <div class="s"><b id="nt">-</b><span>trades</span></div>
+    <div class="s"><b id="nw" class="good">-</b><span>wins</span></div>
+    <div class="s"><b id="nl" class="bad">-</b><span>losses</span></div>
+  </div>
+  <div class="ld">
+    <button class="btn" id="pick">Load my bot files</button>
+    <button class="btn o" id="reset">Show sample</button>
+    <input id="f" type="file" multiple accept=".json,.csv,.log,.txt" hidden>
+    <span class="mute">state.json, trades.csv, decisions.log</span>
+  </div>
+  <div class="g">
+    <div class="p ag"><h2>AGENTS</h2>
+      <div>SCANNER<em>latest closed candle</em></div>
+      <div>SIGNAL<em>RSI divergence, confirmed pivot</em></div>
+      <div>SIZER<em>1% risk, no leverage</em></div>
+      <div>GUARD<em>3% daily / 8% monthly halt</em></div>
+      <div>EXECUTOR<em>paper fills, stop first</em></div>
+      <div>LOGGER<em>every decision has a reason</em></div>
+    </div>
+    <div class="p pos"><h2>OPEN POSITION</h2><div id="pos"></div></div>
+    <div class="p"><h2>EQUITY CURVE</h2><svg id="sp" viewBox="0 0 300 70" preserveAspectRatio="none"></svg><div class="mute" id="spn"></div></div>
+  </div>
+  <div class="p" style="margin-top:12px"><h2>LOG (newest first)</h2><div id="log"></div></div>
+  <p class="note">Paper trading only. Nothing here places real orders. Files you load are read in your browser and are not uploaded anywhere. Sample data is made up for illustration.</p>
+</div>
+<script>
+const START=10000;
+function mk(){var p=[42,-30,55,-30,-30,60,-30,48],e=START,t=[];p.forEach(function(x,i){e+=x;t.push({pnl:x,eq:e,side:i%2?"short":"long",reason:x>0?"target":"stop"})});
+return{state:{equity:e,pos:{side:"long",entry:22100.5,qty:0.31,sl:21980,tp:22341.5}},trades:t,
+log:["ENTER long @ 22100.50 | size 68% eq | reason: RSI divergence confirmed","EXIT   short @ 22210.00 pnl +48.00 | reason: target","SKIP   long signal ignored | reason: daily loss limit hit"]}}
+var cur=mk();
+function $(i){return document.getElementById(i)}
+function fm(n){return n.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function render(){
+  var s=cur.state||{},t=cur.trades||[],eq=s.equity!=null?s.equity:(t.length?t[t.length-1].eq:START);
+  var w=t.filter(function(x){return x.pnl>0}).length,c=(eq/START-1)*100;
+  $("bal").textContent="\u20B9"+fm(eq);$("nt").textContent=t.length;$("nw").textContent=w;$("nl").textContent=t.length-w;
+  $("chg").textContent=(c>=0?"+":"")+c.toFixed(2)+"%";$("chg").className=c>=0?"good":"bad";
+  var p=s.pos,box=$("pos");box.textContent="";
+  if(p){var b=document.createElement("b");b.textContent=String(p.side).toUpperCase()+" @ "+p.entry;
+    var d=document.createElement("div");d.className="mute";d.textContent="stop "+p.sl+"   target "+p.tp+"   qty "+Number(p.qty).toFixed(3);box.append(b,d)}
+  else{box.textContent="flat, waiting for a signal";box.className="mute"}
+  var pts=[START].concat(t.map(function(x){return x.eq})),mn=Math.min.apply(null,pts),mx=Math.max.apply(null,pts),r=(mx-mn)||1;
+  var path=pts.map(function(v,i){return (i/Math.max(pts.length-1,1)*300).toFixed(1)+","+(65-(v-mn)/r*60).toFixed(1)}).join(" ");
+  $("sp").innerHTML='<polyline fill="none" stroke="'+(c>=0?"var(--good)":"var(--bad)")+'" stroke-width="2" points="'+path+'"/>';
+  $("spn").textContent=t.length?"after "+t.length+" closed trades":"no closed trades yet";
+  var L=$("log");L.textContent="";(cur.log||[]).slice().reverse().forEach(function(x){var d=document.createElement("div");d.textContent=x;L.appendChild(d)});
+  if(!(cur.log||[]).length)L.textContent="no decisions yet";
+}
+function csv(tx){var l=tx.trim().split(/\r?\n/),h=l.shift().split(","),ip=h.indexOf("pnl"),ie=h.indexOf("equity"),is=h.indexOf("side"),ir=h.indexOf("reason");
+  return l.filter(Boolean).map(function(r){var c=r.split(",");return{pnl:+c[ip],eq:+c[ie],side:c[is],reason:c[ir]}}).filter(function(x){return isFinite(x.pnl)&&isFinite(x.eq)})}
+$("pick").onclick=function(){$("f").click()};
+$("reset").onclick=function(){cur=mk();$("mode").textContent="SAMPLE DATA";$("mode").className="pill";render()};
+$("f").onchange=function(e){
+  var fs=Array.from(e.target.files);if(!fs.length)return;
+  cur={state:{},trades:[],log:[]};var n=0;
+  fs.forEach(function(f){var r=new FileReader();r.onload=function(){
+    try{var nm=f.name.toLowerCase();
+      if(nm.indexOf("state")>-1)cur.state=JSON.parse(r.result);
+      else if(nm.indexOf("trades")>-1)cur.trades=csv(r.result);
+      else if(nm.indexOf("decisions")>-1||nm.slice(-4)===".log")cur.log=r.result.split(/\r?\n/).filter(Boolean).slice(-200);
+    }catch(x){cur.log.push("Could not read "+f.name)}
+    if(++n===fs.length){$("mode").textContent="YOUR DATA";$("mode").className="pill you";render()}};r.readAsText(f)});
+  e.target.value="";
+};
+render();
+function auto(){
+  Promise.all(["state.json","trades.csv","decisions.log"].map(function(u){
+    return fetch(u+"?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():null}).catch(function(){return null})
+  })).then(function(a){
+    if(!a[0]&&!a[1]&&!a[2])return;
+    var n={state:{},trades:[],log:[]};
+    try{if(a[0])n.state=JSON.parse(a[0])}catch(x){}
+    try{if(a[1])n.trades=csv(a[1])}catch(x){}
+    if(a[2])n.log=a[2].split(/\r?\n/).filter(Boolean).slice(-200);
+    cur=n;$("mode").textContent="LIVE FROM REPO";$("mode").className="pill you";render();
+  });
+}
+auto();setInterval(auto,60000);
+</script>
+</body>
+</html>
